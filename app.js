@@ -82,7 +82,7 @@ const store = MongoStore.create({
     mongoUrl: dbUrl,
     
     crypto: {
-        secret: process.env.SECRET
+        secret: process.env.SECRET,
     },
     touchAfter: 24 * 60 * 60 // time period in seconds
 });
@@ -162,21 +162,27 @@ app.get("/" , async (req , res) =>{
 
 
 
-main().then(() =>{
-    console.log("Connected to database");
-    dbConnected = true;
-}).catch(err => {
-    console.error("Database connection failed:", err);
-    console.error("Server will start but requests will be blocked until database connection succeeds");
-    process.exit(1);
-});
-
 async function main(){
     await mongoose.connect(dbUrl, {
-        serverSelectionTimeoutMS: 5000,
+        serverSelectionTimeoutMS: 10000,
         socketTimeoutMS: 45000,
     });
 }
+
+main().then(() => {
+    console.log("Connected to database");
+    dbConnected = true;
+
+    // Start server AFTER database is connected
+    app.listen(8080, () => {
+        console.log("Server is running on port 8080");
+    });
+}).catch(err => {
+    console.error("Database connection failed:", err);
+    console.error("Make sure Atlas IP whitelist includes this machine and ATLASDB_URL is correct.");
+    console.error("Database URL:", dbUrl.replace(/([\w.]+:[\w.-]+@)/, '***:***@'));
+    process.exit(1);
+});
 
 app.get("/demoUser", async (req, res) => {
     let fakeUser = new User({
@@ -201,9 +207,4 @@ app.use((err, req, res, next) =>{
     res.status(statusCode).render("Error.ejs", {message});
     // res.status(statusCode).send(message);
     
-});
-
-// Start server
-app.listen(8080, () => {
-    console.log("Server is running on port 8080");
 });
